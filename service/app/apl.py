@@ -30,6 +30,16 @@ _TIERS = ((70, 28), (150, 24), (260, 20))
 _MAX_CHARS = 300
 
 
+def _literal(text: str) -> str:
+    """Defuse APL expression syntax in data we did not write.
+
+    The device evaluates ``${…}`` (and ``#{…}``) inside *any* string property,
+    so a message such as "${HOME} is full" turns into the same broken binding
+    this module exists to avoid. A space keeps the words and kills the syntax.
+    """
+    return str(text).replace("${", "$ {").replace("#{", "# {")
+
+
 def screen_text(text: str) -> str:
     """Strip audio tags and clamp the line so the layout never overflows.
 
@@ -37,7 +47,7 @@ def screen_text(text: str) -> str:
     to APL (which would draw the brackets literally), so the screen gets a
     cleaned copy.
     """
-    clean = re.sub(r"\[[^\]]{1,40}\]", "", text)
+    clean = re.sub(r"\[[^\]]{1,40}\]", "", _literal(text))
     clean = re.sub(r"\s+", " ", clean).strip()
     if len(clean) > _MAX_CHARS:
         cut = clean[:_MAX_CHARS]
@@ -71,7 +81,8 @@ def build_document(
     """Inline every value: no resources, no styles, no datasources."""
     line = screen_text(text)
     body_size = _font_size(line)
-    header = title or BRAND_TITLE
+    header = _literal(title or BRAND_TITLE)
+    subtitle = _literal(subtitle)
     image = _art(art)
 
     column_items: list[dict[str, Any]] = [
@@ -159,6 +170,7 @@ def now_playing_document(
     """
     pct = max(0, min(100, progress))
     time_line = f"{elapsed} / {duration}" if elapsed and duration else ""
+    track, artist = _literal(track), _literal(artist)
     image = _art(art)
     return {
         "type": "APL",
@@ -247,13 +259,14 @@ def gallery_document(items: list[dict[str, Any]], *, title: str = "GALLERY",
                 "items": [
                     {"type": "Image", "source": item["art"], "width": 200,
                      "height": 150, "borderRadius": 12, "scale": "best-fill"},
-                    {"type": "Text", "text": item.get("title", ""), "fontSize": 14,
+                    {"type": "Text", "text": _literal(item.get("title", "")), "fontSize": 14,
                      "color": "#B9B6C4", "paddingTop": 6,
                      "maxLines": 1, "textOverflow": "ellipsis"},
                 ],
             }],
         })
 
+    title, subtitle = _literal(title), _literal(subtitle)
     subtitle_items: list[dict[str, Any]] = []
     if subtitle:
         subtitle_items.append({"type": "Text", "text": subtitle, "fontSize": 14,

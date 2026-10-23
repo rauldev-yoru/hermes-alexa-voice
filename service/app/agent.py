@@ -21,6 +21,13 @@ SESSION_NOTE = re.compile(r"^\s*session_id:.*$", re.MULTILINE)
 ANSI = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 
 NOTIFY_PY = REPO_DIR / "cli" / "notify.py"
+# notify.py rings the Echo through alexapy, which install.sh only puts in the
+# CLI venv — the service's own interpreter cannot import it.
+CLI_PYTHON = REPO_DIR / "cli" / "venv" / "bin" / "python"
+
+
+def _cli_python() -> str:
+    return str(CLI_PYTHON) if CLI_PYTHON.is_file() else sys.executable
 
 
 def _clean(stdout: str) -> str:
@@ -96,7 +103,7 @@ async def speak(text: str, device_name: str | None = None) -> tuple[bool, str]:
         return False, "empty message"
     if not NOTIFY_PY.is_file():
         return False, f"{NOTIFY_PY} not found"
-    cmd = [sys.executable, str(NOTIFY_PY), message]
+    cmd = [_cli_python(), str(NOTIFY_PY), message]
     if device_name:
         cmd += ["--device", device_name]
     proc = await asyncio.create_subprocess_exec(

@@ -14,6 +14,7 @@ Anything that fails raises `SignatureError` and the caller must answer 400.
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import datetime as dt
 import hashlib
@@ -37,25 +38,40 @@ MAX_TIMESTAMP_SKEW = 150  # seconds, Amazon's documented tolerance
 _CERT_CACHE: dict[str, tuple[float, str]] = {}
 CERT_TTL = 6 * 3600
 
-_URL_RE = re.compile(r"^/echo\.api/", re.IGNORECASE)
-
-
 class SignatureError(Exception):
     """Raised when a request cannot be proven to come from Alexa."""
 
 
-def _validate_cert_url(url: str) -> None:
-    parts = urlsplit(url)
+def _remove_dot_segments(path: str) -> str:
+    """RFC 3986 §5.2.4, so ``/echo.api/../x`` is judged as ``/x``."""
+    out: list[str] = []
+    for seg in path.split("/"):
+        if seg == "..":
+            if len(out) > 1:
+                out.pop()
+        elif seg != ".":
+            out.append(seg)
+    return "/".join(out)
+
+
+def _validate_cert_url(url: str) -> str:
+    """Check SignatureCertChainUrl and return the normalized URL to fetch."""
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+    except ValueError as exc:
+        raise SignatureError("cert url: malformed") from exc
     if parts.scheme.lower() != "https":
         raise SignatureError("cert url: scheme must be https")
-    if parts.hostname.lower() != "s3.amazonaws.com":
+    if (parts.hostname or "").lower() != "s3.amazonaws.com":
         raise SignatureError("cert url: host must be s3.amazonaws.com")
-    # Normalize dot segments the way the spec asks before checking the path.
-    path = "/".join(seg for seg in parts.path.split("/") if seg not in ("", "."))
-    if not _URL_RE.match("/" + path):
+    path = _remove_dot_segments(parts.path)
+    # The spec makes the path case-sensitive: /EcHo.aPi/ is invalid.
+    if not path.startswith("/echo.api/"):
         raise SignatureError("cert url: path must be under /echo.api/")
-    if parts.port not in (None, 443):
+    if port not in (None, 443):
         raise SignatureError("cert url: port must be 443")
+    return f"https://s3.amazonaws.com{path}"
 
 
 async def _fetch_chain(url: str) -> str:
@@ -115,7 +131,10 @@ def _verify_chain(blocks: list[str]) -> None:
         if untrusted.stat().st_size:
             cmd += ["-untrusted", str(untrusted)]
         cmd.append(str(leaf))
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+        except (subprocess.SubprocessError, OSError) as exc:
+            raise SignatureError(f"chain verification failed: {type(exc).__name__}") from exc
         if proc.returncode != 0:
             raise SignatureError(f"chain verification failed: {proc.stderr.strip()[:300]}")
 
@@ -137,9 +156,14 @@ def _verify_signature(blocks: list[str], signature_b64: str, body: bytes) -> Non
 
 def _check_timestamp(payload: dict) -> None:
     raw = (payload.get("request") or {}).get("timestamp")
-    if not raw:
+    if not raw or not isinstance(raw, str):
         raise SignatureError("request has no timestamp")
-    ts = dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    try:
+        ts = dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise SignatureError("request timestamp is malformed") from exc
+    if ts.tzinfo is None:
+        raise SignatureError("request timestamp has no timezone")
     skew = abs((dt.datetime.now(dt.timezone.utc) - ts).total_seconds())
     if skew > MAX_TIMESTAMP_SKEW:
         raise SignatureError(f"request timestamp is {int(skew)}s off")
@@ -152,14 +176,36 @@ async def verify_request(headers: dict, body: bytes, payload: dict) -> None:
     if not cert_url or not signature:
         raise SignatureError("missing SignatureCertChainUrl or Signature-256 header")
 
-    _validate_cert_url(cert_url)
-    pem = await _fetch_chain(cert_url)
+    pem = await _fetch_chain(_validate_cert_url(cert_url))
     blocks = _split_chain(pem)
-    cert = x509.load_pem_x509_certificate(blocks[0].encode())
+    try:
+        cert = x509.load_pem_x509_certificate(blocks[0].encode())
+    except ValueError as exc:
+        raise SignatureError("leaf cert is not valid PEM") from exc
     _check_leaf(cert)
-    _verify_chain(blocks)
+    # openssl is a blocking subprocess: keep it off the event loop.
+    await asyncio.to_thread(_verify_chain, blocks)
     _verify_signature(blocks, signature, body)
     _check_timestamp(payload)
+
+
+def check_application(payload: dict, skill_id: str | None) -> None:
+    """Reject signed requests that belong to somebody else's skill.
+
+    A valid Amazon signature only proves the request came from Alexa — any
+    developer can point their own skill at this endpoint. With ``skill_id``
+    configured, only that skill may reach the handlers (and the agent).
+    """
+    if not skill_id:
+        return
+    for holder in ((payload.get("context") or {}).get("System") or {},
+                   payload.get("session") or {}):
+        app_id = ((holder.get("application") or {}).get("applicationId"))
+        if app_id:
+            if app_id != skill_id:
+                raise SignatureError("request is for a different skill")
+            return
+    raise SignatureError("request has no applicationId")
 
 
 def subject_summary(pem: str) -> str:

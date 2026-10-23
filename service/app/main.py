@@ -14,9 +14,11 @@ import asyncio
 import json
 import logging
 import re
+from collections import deque
 from html import escape
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -29,15 +31,17 @@ from .config import (
     BRAND_WELCOME,
     DEVICE_NAME,
     GALLERY_ROOTS,
+    HOST,
     MEDIA_ROOT,
     PUBLIC_BASE,
+    SKILL_ID,
     SKIP_VERIFY,
     STATE_DIR,
     SYNC_BUDGET,
     s,
     summary,
 )
-from .verify import SignatureError, verify_request
+from .verify import SignatureError, check_application, verify_request
 
 logging.basicConfig(
     level=logging.INFO,
@@ -55,10 +59,20 @@ HELP = BRAND_HELP
 _QUEUES: dict[str, tuple[list[str], int]] = {}
 _OFFSETS: dict[str, tuple[str, int]] = {}
 _TASKS: set[asyncio.Task] = set()
-_PENDING: dict[str, dict] = {}
-_PENDING_KEY = "*"
+# FIFO, one entry per notify.py call: each call rings the Echo once, and each
+# LaunchRequest takes one message. A single slot let two close crons overwrite
+# each other — the first message was lost and the second launch got WELCOME.
+_PENDING: deque[dict] = deque(maxlen=20)
 _GALLERY: dict[str, list[str]] = {}
 _ALLOWED_MODELS = {"eleven_v4", "eleven_v3", "eleven_v4_turbo", "eleven_flash_v2_5"}
+# Alexa abandons the request after 8 s; past this the built-in voice answers.
+VOICE_BUDGET = 6.0
+NOTIFY_MAX_CHARS = 2000
+# Set by reverse proxies (Tailscale Funnel/Serve, cloudflared, nginx when
+# configured). Their presence means the "loopback" peer is really the internet.
+_PROXY_HEADERS = ("forwarded", "x-forwarded-for", "x-forwarded-host", "x-real-ip",
+                  "cf-connecting-ip", "tailscale-funnel-request")
+_LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 ART_DIR = STATE_DIR / "art"
 VOICE_DIR = STATE_DIR / "voice"
 
@@ -122,7 +136,8 @@ async def voice_reply(text: str, *, chime: bool = False, model: str | None = Non
     url = None
     try:
         url = await asyncio.wait_for(
-            asyncio.to_thread(voice.render, text, chime=chime, model_id=model), timeout=10.0
+            asyncio.to_thread(voice.render, text, chime=chime, model_id=model),
+            timeout=VOICE_BUDGET,
         )
     except Exception:  # noqa: BLE001
         url = None
@@ -159,6 +174,12 @@ def _slot(intent: dict, *names: str) -> str:
     return ""
 
 
+def _media_url(rel: str) -> str:
+    # Same encoding as media.Track.url: a raw space or '#' in a file name makes
+    # the Echo fail the stream, so Resume/Next broke on exactly those tracks.
+    return f"{PUBLIC_BASE}/media/{quote(rel)}"
+
+
 def _device_id(ctx: dict) -> str:
     return ((ctx.get("System") or {}).get("device") or {}).get("deviceId", "unknown")
 
@@ -167,7 +188,7 @@ def _device_id(ctx: dict) -> str:
 # Intent handlers
 # --------------------------------------------------------------------------- #
 async def handle_launch(event: dict, ctx: dict) -> JSONResponse:
-    item = _PENDING.pop(_PENDING_KEY, None)
+    item = _PENDING.popleft() if _PENDING else None
     if item:
         log.info("launch delivered queued message: %r", item["text"][:70])
         return await voice_reply(
@@ -236,7 +257,10 @@ async def _ask_agent(question: str, ctx: dict) -> JSONResponse:
 
     try:
         answer = await asyncio.wait_for(asyncio.shield(task), timeout=SYNC_BUDGET)
-        return reply(answer, card_title=BRAND_TITLE, full_text=True)
+        # Raw agent output is markdown of any length; Alexa rejects outputSpeech
+        # over 8000 chars. Speak the cleaned version, keep the full one on the card.
+        spoken = agent.for_speech(answer) or s("done")
+        return reply(spoken, card_title=BRAND_TITLE, card_text=answer[:4000])
     except asyncio.TimeoutError:
         notifier = asyncio.create_task(agent.notify_task(task, question[:60], DEVICE_NAME))
         _TASKS.add(notifier)
@@ -280,7 +304,7 @@ async def handle_resume_or_next(event: dict, ctx: dict, advance: bool = False,
                     "version": "1.0",
                     "response": {
                         "directives": [
-                            play_directive(f"{idx}|{rel}", f"{PUBLIC_BASE}/media/{rel}", offset)
+                            play_directive(f"{idx}|{rel}", _media_url(rel), offset)
                         ],
                         "shouldEndSession": True,
                     },
@@ -300,7 +324,7 @@ async def handle_resume_or_next(event: dict, ctx: dict, advance: bool = False,
     return JSONResponse({
         "version": "1.0",
         "response": {
-            "directives": [play_directive(f"{next_index}|{rel}", f"{PUBLIC_BASE}/media/{rel}")],
+            "directives": [play_directive(f"{next_index}|{rel}", _media_url(rel))],
             "shouldEndSession": True,
         },
     })
@@ -463,9 +487,13 @@ async def _skill_entry(request: Request) -> JSONResponse:
     except Exception:  # noqa: BLE001
         pass
 
+    if not isinstance(payload, dict):
+        return JSONResponse({"error": "bad json"}, status_code=400)
+
     if not SKIP_VERIFY:
         try:
             await verify_request(dict(request.headers), body, payload)
+            check_application(payload, SKILL_ID)
         except SignatureError as exc:
             log.warning("signature rejected: %s", exc)
             return JSONResponse({"error": "invalid signature"}, status_code=400)
@@ -534,7 +562,7 @@ def _health() -> JSONResponse:
         "tracks": len(media.catalogue()),
         "queues": len(_QUEUES),
         "background_tasks": len(_TASKS),
-        "pending_notify": bool(_PENDING.get(_PENDING_KEY)),
+        "pending_notify": len(_PENDING),
     })
 
 
@@ -543,17 +571,34 @@ app.get("/alexa/health")(_health)
 
 
 async def _notify(request: Request):
-    """Queue a notification for the next skill launch. Loopback only."""
-    host = (request.client.host if request.client else "") or ""
-    if host not in ("127.0.0.1", "::1", "localhost"):
+    """Queue a notification for the next skill launch. Loopback only.
+
+    The peer address alone is not enough: every reverse proxy in docs/SETUP.md
+    runs on this host, so a request from the internet also arrives from
+    127.0.0.1. Proxied requests are recognised by their forwarding headers and
+    by a Host header that is not this machine.
+    """
+    peer = (request.client.host if request.client else "") or ""
+    host_header = (request.headers.get("host") or "").strip().lower()
+    host_name = host_header.rsplit(":", 1)[0].strip("[]") if host_header else ""
+    if (peer not in _LOOPBACK_HOSTS
+            or any(h in request.headers for h in _PROXY_HEADERS)
+            or host_name not in (_LOOPBACK_HOSTS | {HOST.lower()})):
         return JSONResponse({"error": "forbidden"}, status_code=403)
     try:
         body = await request.json()
     except Exception:  # noqa: BLE001
         return JSONResponse({"error": "invalid json"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "expected a JSON object"}, status_code=400)
     text = str(body.get("text") or "").strip()
     if not text:
         return JSONResponse({"error": "text required"}, status_code=400)
+    if len(text) > NOTIFY_MAX_CHARS:
+        # Past Alexa's limits (2 min of audio, 8000 chars of SSML) the Echo
+        # would answer "problem with the skill" instead of speaking.
+        return JSONResponse({"error": f"text longer than {NOTIFY_MAX_CHARS} chars"},
+                            status_code=400)
 
     model = str(body.get("model") or "").strip()
     if model and model not in _ALLOWED_MODELS:
@@ -567,8 +612,8 @@ async def _notify(request: Request):
         "screen": bool(body.get("screen", True)),
         "model": model or None,
     }
-    _PENDING[_PENDING_KEY] = item
-    log.info("queued for next launch: %r", text[:70])
+    _PENDING.append(item)
+    log.info("queued for next launch (%d pending): %r", len(_PENDING), text[:70])
     return JSONResponse({
         "ok": True,
         "queued": text[:120],
@@ -584,7 +629,13 @@ app.post("/alexa/notify")(_notify)
 async def _warm_voice() -> None:
     """Pre-render the fixed phrases so the first reply has no latency."""
     async def warm() -> None:
-        ready = await asyncio.to_thread(voice.prerender, [WELCOME, HELP])
-        log.info("voice warm: %d/2 fixed phrases ready", ready)
+        try:
+            ready = await asyncio.to_thread(voice.prerender, [WELCOME, HELP])
+            log.info("voice warm: %d/2 fixed phrases ready", ready)
+        except Exception:  # noqa: BLE001
+            log.exception("voice warm-up failed")
 
-    asyncio.create_task(warm())
+    # Keep a reference: the event loop only holds tasks weakly.
+    task = asyncio.create_task(warm())
+    _TASKS.add(task)
+    task.add_done_callback(_TASKS.discard)

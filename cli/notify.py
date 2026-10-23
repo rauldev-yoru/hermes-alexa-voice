@@ -84,25 +84,43 @@ def in_quiet_hours(spec: str | None, now: dt.datetime | None = None) -> bool:
     return hour >= start or hour < end
 
 
-def duplicate(text: str, minutes: int) -> bool:
-    """Remember what was sent, so a chatty cron cannot spam the speaker."""
-    if minutes <= 0:
-        return False
-    history: dict = {}
+def _history() -> dict:
     if HISTORY_PATH.exists():
         try:
-            history = json.loads(HISTORY_PATH.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            history = {}
-    key = hashlib.sha1(text.strip().encode("utf-8")).hexdigest()[:16]
-    last = history.get(key, 0)
-    if time.time() - float(last) < minutes * 60:
-        return True
-    history[key] = time.time()
+            data = json.loads(HISTORY_PATH.read_text(encoding="utf-8"))
+            return data if isinstance(data, dict) else {}
+        except (OSError, json.JSONDecodeError):
+            return {}
+    return {}
+
+
+def _key(text: str) -> str:
+    return hashlib.sha1(text.strip().encode("utf-8")).hexdigest()[:16]
+
+
+def remember(text: str) -> None:
+    """Record a delivered message for `duplicate`."""
+    history = _history()
+    history[_key(text)] = time.time()
     cutoff = time.time() - 7 * 86400
     history = {k: v for k, v in history.items() if float(v) > cutoff}
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     HISTORY_PATH.write_text(json.dumps(history), encoding="utf-8")
+
+
+def duplicate(text: str, minutes: int, record: bool = True) -> bool:
+    """Remember what was sent, so a chatty cron cannot spam the speaker.
+
+    ``record=False`` only checks; `main` records after a successful delivery so
+    a failed attempt does not block the cron's retry.
+    """
+    if minutes <= 0:
+        return False
+    last = _history().get(_key(text), 0)
+    if time.time() - float(last) < minutes * 60:
+        return True
+    if record:
+        remember(text)
     return False
 
 
@@ -154,18 +172,22 @@ def main() -> int:
               else f"silenced by quiet hours ({args.quiet_hours})")
         return 0
 
-    if not args.force and duplicate(args.text, args.dedupe_minutes):
+    if not args.force and duplicate(args.text, args.dedupe_minutes, record=False):
         log(f"SKIP duplicate text={args.text[:60]!r}")
         print(json.dumps({"ok": True, "skipped": "duplicate"}) if args.json
               else f"duplicate: already sent less than {args.dedupe_minutes} min ago")
         return 0
 
+    # config.json `notify.chime` / `notify.screen` are the defaults; the flags
+    # can only turn them off for one call.
+    chime = bool(NOTIFY_CFG.get("chime", True)) and not args.no_chime
+    screen = bool(NOTIFY_CFG.get("screen", True)) and not args.no_screen
     payload = {
         "text": args.text,
         "title": args.title,
         "subtitle": args.subtitle,
-        "chime": not args.no_chime,
-        "screen": not args.no_screen,
+        "chime": chime,
+        "screen": screen,
         "model": model,
     }
     queued = queue_notification(payload)
@@ -179,8 +201,9 @@ def main() -> int:
         return 0
 
     launch(args.device)
-    log(f"SENT text={args.text[:60]!r} model={model} "
-        f"chime={not args.no_chime} screen={not args.no_screen}")
+    if args.dedupe_minutes > 0:
+        remember(args.text)
+    log(f"SENT text={args.text[:60]!r} model={model} chime={chime} screen={screen}")
     print(json.dumps({"ok": True, "sent": True, **queued}) if args.json
           else "sent — the Echo should speak in a few seconds")
     return 0

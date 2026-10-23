@@ -36,10 +36,19 @@ anything permanent.
 ### nginx / Caddy with Let's Encrypt
 
 ```nginx
-location /alexa { proxy_pass http://127.0.0.1:8099; }
+location /alexa {
+    proxy_pass http://127.0.0.1:8099;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $remote_addr;
+}
 ```
 
 `public_base = https://your.domain/alexa`.
+
+Keep both `proxy_set_header` lines. A proxy on the same host connects from
+`127.0.0.1`, so the service tells local `notify.py` calls apart from internet
+traffic by these headers. Without them, anyone who can reach the public URL can
+queue messages on `/notify`. Tailscale Funnel and cloudflared send them already.
 
 ### Verify
 

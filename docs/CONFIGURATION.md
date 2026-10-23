@@ -4,7 +4,8 @@ Three layers, later wins:
 
 1. defaults in `service/app/config.py`
 2. `config.json` (path from `$ALEXA_VOICE_CONFIG`, else `<repo>/config.json`)
-3. environment variables, one per key: `ALEXA_<KEY>`
+3. environment variables, one per key: `ALEXA_<KEY>` (`strings` and `notify`
+   take a JSON object, e.g. `ALEXA_NOTIFY='{"chime": false}'`)
 
 Start from [`config.example.json`](../config.example.json).
 
@@ -29,7 +30,7 @@ Start from [`config.example.json`](../config.example.json).
 | `agent_timeout` | `240` | Seconds before the agent task is killed. |
 | `agent_sync_budget` | `4.0` | Seconds Alexa waits before the answer is deferred to a notification. |
 | `device_name` | `null` | Echo name substring. `null` = first speaker found. |
-| `skill_id` | `null` | `amzn1.ask.skill.…` — required for `run_skill`, i.e. for notifications. |
+| `skill_id` | `null` | `amzn1.ask.skill.…` — required for `run_skill`, i.e. for notifications. When set, signed requests from any other skill are rejected (`400`). |
 | `cookies_file` | `state/credentials/amazon_cookies.json` | Amazon session cookies. |
 | `skip_verify` | `false` | Disable signature checks. **Localhost development only.** |
 | `state_dir` | `service/state` | Runtime files (voice cache, thumbs, logs). `$REPO` is expanded. |

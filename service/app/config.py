@@ -111,6 +111,17 @@ def _config_path() -> Path | None:
     return candidate if candidate.is_file() else None
 
 
+_TRUE = {"1", "true", "yes", "on"}
+
+
+def _as_bool(value: Any) -> bool:
+    # bool("false") is True: a quoted "false" must not silently flip a switch
+    # such as skip_verify.
+    if isinstance(value, str):
+        return value.strip().lower() in _TRUE
+    return bool(value)
+
+
 def _from_file() -> dict[str, Any]:
     path = _config_path()
     if path is None or not path.is_file():
@@ -119,7 +130,12 @@ def _from_file() -> dict[str, Any]:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
-    return data if isinstance(data, dict) else {}
+    if not isinstance(data, dict):
+        return {}
+    for key, default in DEFAULTS.items():
+        if isinstance(default, bool) and key in data:
+            data[key] = _as_bool(data[key])
+    return data
 
 
 def _from_env() -> dict[str, Any]:
@@ -130,7 +146,15 @@ def _from_env() -> dict[str, Any]:
         if raw is None:
             continue
         if isinstance(default, bool):
-            out[key] = raw.strip().lower() in {"1", "true", "yes", "on"}
+            out[key] = _as_bool(raw)
+        elif isinstance(default, dict):
+            # Nested sections (strings, notify) take a JSON object.
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(parsed, dict):
+                out[key] = parsed
         elif isinstance(default, int):
             try:
                 out[key] = int(raw)
@@ -229,8 +253,24 @@ _CA_CANDIDATES = [
     "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
     "/etc/ssl/certs/ca-bundle.crt",
     "/etc/pki/tls/certs/ca-bundle.crt",
+    "/etc/ssl/cert.pem",  # macOS, Alpine, OpenBSD
 ]
-CA_BUNDLE = next((p for p in _CA_CANDIDATES if p and os.path.exists(p)), "")
+
+
+def _find_ca_bundle(candidates: list[str]) -> str:
+    found = next((p for p in candidates if p and os.path.exists(p)), "")
+    if found:
+        return found
+    # Last resort: certifi ships with httpx, so it is always installed.
+    try:
+        import certifi
+    except ImportError:
+        return ""
+    path = certifi.where()
+    return path if os.path.exists(path) else ""
+
+
+CA_BUNDLE = _find_ca_bundle(_CA_CANDIDATES)
 
 
 def summary() -> dict[str, Any]:
