@@ -69,6 +69,17 @@ def validate(cfg: dict) -> tuple[list[str], list[str]]:
             "Localhost development only."
         )
 
+    for key in ("voice_stability", "voice_similarity", "voice_style"):
+        value = cfg.get(key)
+        if value is not None:
+            try:
+                num = float(value)
+            except (TypeError, ValueError):
+                errors.append(f"{key}={value!r} is not a number (expected 0-1)")
+            else:
+                if not 0.0 <= num <= 1.0:
+                    errors.append(f"{key}={num} is outside 0-1")
+
     voice_id = str(cfg.get("voice_id") or "")
     if voice_id:
         has_key = bool(os.getenv("ELEVENLABS_API_KEY"))
@@ -129,6 +140,8 @@ def main() -> int:
     p.add_argument("--voice-model", help="eleven_v4 | eleven_v3 | eleven_v4_turbo | eleven_flash_v2_5")
     p.add_argument("--no-custom-voice", action="store_true", help="empty voice_id: built-in voice")
     p.add_argument("--no-chime", action="store_true")
+    p.add_argument("--stability", type=float, help="0-1: lower is more expressive")
+    p.add_argument("--similarity", type=float, help="0-1: how tightly it sticks to the source voice")
 
     p.add_argument("--brand", help="brand_title shown on screen")
     p.add_argument("--welcome", help="fixed phrase when the skill opens")
@@ -165,6 +178,8 @@ def main() -> int:
         "device_name": args.device,
         "voice_id": args.voice_id,
         "voice_model": args.voice_model,
+        "voice_stability": args.stability,
+        "voice_similarity": args.similarity,
         "brand_title": args.brand,
         "brand_welcome": args.welcome,
         "brand_help": args.help_text,

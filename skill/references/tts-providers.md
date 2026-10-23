@@ -6,6 +6,10 @@ change.
 
 ## The contract
 
+> Picking a voice for a *user* (as opposed to writing an adapter) is a
+> conversation, not a config value: see [voice-setup.md](voice-setup.md).
+
+
 ```python
 # service/app/voice.py
 def render(text: str, *, chime: bool = False,

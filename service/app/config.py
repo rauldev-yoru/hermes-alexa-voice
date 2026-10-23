@@ -46,6 +46,12 @@ DEFAULTS: dict[str, Any] = {
     "voice_enabled": True,
     "voice_id": "",
     "voice_model": "eleven_v4",
+    # How the voice performs. stability: lower = more expressive, higher = more
+    # consistent. similarity_boost: how tightly it sticks to the source voice.
+    # style: exaggeration (only affects models that support it).
+    "voice_stability": 0.4,
+    "voice_similarity": 0.8,
+    "voice_style": 0.45,
     "chime": True,
     # Optional bridge to a local agent CLI (Hermes by default). `agent_bin` null
     # disables the free-text question feature.
@@ -226,6 +232,9 @@ ART_IMAGE: str | None = CFG["art_image"] or None
 VOICE_ENABLED: bool = bool(CFG["voice_enabled"]) and bool(CFG["voice_id"])
 VOICE_ID: str = str(CFG["voice_id"] or "")
 VOICE_MODEL: str = str(CFG["voice_model"])
+VOICE_STABILITY: float = float(CFG["voice_stability"])
+VOICE_SIMILARITY: float = float(CFG["voice_similarity"])
+VOICE_STYLE: float = float(CFG["voice_style"])
 CHIME_ENABLED: bool = bool(CFG["chime"])
 
 AGENT_BIN: str | None = CFG["agent_bin"] or None

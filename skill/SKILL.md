@@ -96,22 +96,30 @@ idempotent — re-running it is safe.
 Ask, then write. Never pick across the user's choices:
 
 - **Voice**: custom TTS or the Echo's built-in voice? The built-in voice is free,
-  needs no account and works immediately; a custom voice needs a provider key.
-  See [references/tts-providers.md](references/tts-providers.md).
+  needs no account and works immediately; a custom voice needs a provider key and
+  a voice id the user has to *hear* first. **The full conversation — what to ask,
+  how to get the id, how to audition, how to give it a personality — is in
+  [references/voice-setup.md](references/voice-setup.md).** Follow it in order;
+  never invent a voice id.
 - **What it says and shows**: `brand_title`, `brand_welcome`, `brand_help`,
   `art_image`. See [references/customization.md](references/customization.md).
 - **Optional features**: music (`media_root`), gallery (`image_roots`), agent
   answers (`agent_bin`). Off by default; the skill degrades gracefully without them.
 
 ```bash
-configure.py --public-base https://host/alexa --skill-id amzn1.ask.skill.xxx
-configure.py --no-custom-voice                     # built-in voice, no key needed
-configure.py --welcome "Nova here. What do you need?" --brand NOVA
+skill/scripts/configure.py --public-base https://example.com/alexa --skill-id amzn1.ask.skill.xxx
+
+# voice discovery (no voice id needed to start)
+skill/scripts/voices.py --status          # is a provider key even present?
+skill/scripts/voices.py --list            # voices in the account, with labels
+skill/scripts/voices.py --preview --name "Alice"   # 3 samples: neutral, emotion, brand
+skill/scripts/voices.py --set --name "Alice" --model eleven_v4
+skill/scripts/configure.py --no-custom-voice       # or: built-in voice, no key needed
 ```
 
-`configure.py` validates as it writes: a non-https `public_base`, a `voice_id` with
-no key, a `media_root` that does not exist and an `art_image` that is not public
-are reported instead of silently doing nothing.
+`configure.py` validates as it writes: a non-https public base, a voice id with no
+key, a media folder that does not exist, an illustration that is not public and a
+stability/similarity outside 0–1 are reported instead of silently doing nothing.
 
 ## Step 4 — the Alexa skill (owner must be involved)
 
@@ -216,7 +224,8 @@ Each one looks like a bug and is not. Do not "fix" them.
 | File | Contents |
 |---|---|
 | [references/fallbacks.md](references/fallbacks.md) | every missing piece and what to do instead |
-| [references/tts-providers.md](references/tts-providers.md) | render contract, ElevenLabs, Piper, HTTP TTS |
+| [references/voice-setup.md](references/voice-setup.md) | the conversation: pick, audition and personalise a voice |
+| [references/tts-providers.md](references/tts-providers.md) | render contract, hosted and local engines, generic HTTP |
 | [references/devices.md](references/devices.md) | capabilities, viewports, model landscape |
 | [references/customization.md](references/customization.md) | phrases, language, image, APL layout |
 | `docs/PITFALLS.md` (in the checkout) | why the constraints exist, with proof |

@@ -36,6 +36,9 @@ from .config import (
     VOICE_ENABLED,
     VOICE_ID,
     VOICE_MODEL,
+    VOICE_SIMILARITY,
+    VOICE_STABILITY,
+    VOICE_STYLE,
 )
 
 VOICE_DIR = STATE_DIR / "voice"
@@ -111,9 +114,12 @@ def _synthesize(text: str, raw: Path, voice_id: str, model_id: str) -> None:
     key = _api_key()
     if not key:
         raise RuntimeError("no ELEVENLABS_API_KEY")
-    settings: dict[str, float] = {"stability": 0.4, "similarity_boost": 0.8}
+    settings: dict[str, float] = {
+        "stability": VOICE_STABILITY,
+        "similarity_boost": VOICE_SIMILARITY,
+    }
     if model_id.startswith("eleven_flash") or model_id.endswith("_turbo"):
-        settings["style"] = 0.45
+        settings["style"] = VOICE_STYLE
     payload = {"text": text, "model_id": model_id, "voice_settings": settings}
     with httpx.Client(timeout=45) as client:
         resp = client.post(
@@ -169,7 +175,9 @@ def render(text: str, *, chime: bool = False, voice_id: str | None = None,
         ensure_chime()
         use_chime = CHIME.exists()
 
-    stem = hashlib.sha1(f"{voice}|{model}|{text}".encode("utf-8")).hexdigest()[:12]
+    stem = hashlib.sha1(
+        f"{voice}|{model}|{VOICE_STABILITY}|{VOICE_SIMILARITY}|{text}".encode("utf-8")
+    ).hexdigest()[:12]
     plain = VOICE_DIR / f"{stem}{CACHE_VERSION}.mp3"
     out = VOICE_DIR / f"{stem}{CACHE_VERSION}c.mp3" if use_chime else plain
 

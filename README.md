@@ -132,6 +132,7 @@ Components:
 | `skill/references/` | fallbacks per missing piece, TTS providers, device capabilities, customisation |
 | `skill/scripts/probe.py` | environment report: what works, what is missing, which fallback to take |
 | `skill/scripts/configure.py` | validated edits to `config.json` (voice, phrases, image, language) |
+| `skill/scripts/voices.py` | list/audition/pick a voice and set its performance parameters |
 | `docs/PITFALLS.md` | the failures that cost hours, and why they happen |
 
 ## Honest limitations

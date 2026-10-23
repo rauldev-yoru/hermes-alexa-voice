@@ -14,6 +14,9 @@
   "voice_enabled": true,
   "voice_id": "",
   "voice_model": "eleven_v4",
+  "voice_stability": 0.4,
+  "voice_similarity": 0.8,
+  "voice_style": 0.45,
   "chime": true,
 
   "agent_bin": null,
