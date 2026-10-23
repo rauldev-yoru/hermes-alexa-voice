@@ -15,6 +15,9 @@ an image gallery, but the notification path is the reason it exists.
 half the pieces are optional, and the probe tells you which ones this machine and
 this device actually need.
 
+**All paths below are relative to the cloned repository** (`git clone` it first;
+`skill/scripts/` ships with the repo, not with the installed skill file).
+
 ## Architecture
 
 ```

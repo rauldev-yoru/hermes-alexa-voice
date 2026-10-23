@@ -53,6 +53,19 @@ $EDITOR config.json                    # public_base, voice_id, skill_id
 ./cli/venv/bin/python cli/doctor.py
 ```
 
+### Install the skill into your agent
+
+The repo doubles as a Hermes skill, so the agent can drive the whole setup and
+the fallbacks itself:
+
+```bash
+hermes skills install https://raw.githubusercontent.com/rauldev-yoru/hermes-alexa-voice/main/skill/SKILL.md
+```
+
+It brings `SKILL.md` plus `references/` (fallbacks, TTS providers, device
+capabilities, customisation). The scripts ship with the repo — clone it first, the
+paths in the skill are relative to the checkout.
+
 Then the one-time Alexa console work (create the skill, paste the interaction
 model, point it at your public https URL): **[docs/SETUP.md](docs/SETUP.md)**.
 And harvest Amazon cookies: **[docs/COOKIES.md](docs/COOKIES.md)**.
