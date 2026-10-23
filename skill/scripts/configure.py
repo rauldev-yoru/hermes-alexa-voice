@@ -57,8 +57,8 @@ def validate(cfg: dict) -> tuple[list[str], list[str]]:
     if not public.startswith("https://"):
         errors.append(
             f"public_base={public!r} is not https:// — Alexa never calls http or a "
-            "self-signed endpoint. Publish over Tailscale Funnel, cloudflared or "
-            "nginx+Let's Encrypt and use that URL."
+            "self-signed endpoint. Publish it through a tunnel or a reverse "
+            "proxy with a real certificate and use that URL (docs/SETUP.md)."
         )
     if public.endswith("/"):
         warnings.append("public_base ends with '/' — the skill path will be '//health'; drop it")

@@ -58,9 +58,9 @@ someone who has not decided yet.
 ### A. ElevenLabs (the reference implementation)
 
 ```python
-resp = httpx.post(
+resp = http_client.post(
     f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
-    headers={"xi-api-key": KEY, "accept": "audio/mpeg"},
+    headers=auth_header,   # provider key, read from the environment
     json={"text": text, "model_id": model_id,
           "voice_settings": {"stability": 0.4, "similarity_boost": 0.8}},
     params={"output_format": "mp3_44100_128"},
@@ -90,9 +90,9 @@ user has no key and objects to cloud TTS.
 All of them reduce to: POST the text, get bytes, run the ffmpeg line.
 
 ```python
-resp = httpx.post(url, headers={"Authorization": f"Bearer {KEY}"},
-                  json={"input": text, "voice": voice_id, "model": model_id},
-                  timeout=45)
+resp = http_client.post(url, headers=auth_header,
+                        json={"input": text, "voice": voice_id, "model": model_id},
+                        timeout=45)
 ```
 
 If the provider streams WAV or PCM, write it to a temp file and let ffmpeg do the

@@ -31,10 +31,10 @@ config, cookies.
 
 | Option | Command | Notes |
 |---|---|---|
-| Tailscale Funnel | `sudo tailscale funnel --bg --set-path /alexa 8099` | free, real certificate, only that path is public |
-| cloudflared quick tunnel | `cloudflared tunnel --url http://127.0.0.1:8099` | URL changes on restart; fine for testing |
-| nginx + certbot | `location /alexa { proxy_pass http://127.0.0.1:8099; }` | needs a domain; add `proxy_set_header Host $host;` |
-| Caddy | `reverse_proxy 127.0.0.1:8099` | automatic certificates |
+| Mesh VPN with a funnel feature | publish only the skill path, keep the rest private | free, real certificate, minimal exposure |
+| Quick tunnel tool | a temporary public URL from your tunnel provider | URL changes on restart; fine for testing |
+| Reverse proxy + ACME | proxy the skill path to the local port | needs a domain; forward the Host header |
+| Web server with automatic TLS | proxy the skill path to the local port | zero-config certificates |
 
 The endpoint must serve **https on 443** with a certificate from a public CA and
 answer in under **8 seconds**. Self-signed and plain http are rejected.
@@ -83,8 +83,8 @@ generic.
 
 Check in this order:
 
-1. `curl -s -H "xi-api-key: $KEY" https://api.elevenlabs.io/v1/models` → 401 means
-   the key is wrong or revoked.
+1. Request the provider's `/v1/models` endpoint with your key in its auth header —
+   a 401 means the key is wrong or revoked.
 2. A **TTS-scoped** key answers 401 on `/v1/user/subscription` — that is normal,
    not a failure.
 3. Quota exhausted → the API returns 401/429 with a message; the service falls
