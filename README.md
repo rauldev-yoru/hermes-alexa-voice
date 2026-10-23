@@ -46,7 +46,7 @@ into an agent output channel.
 ## Install
 
 ```bash
-git clone https://github.com/Raul122-dev/hermes-alexa-voice
+git clone https://github.com/rauldev-yoru/hermes-alexa-voice
 cd hermes-alexa-voice
 ./install.sh
 $EDITOR config.json                    # public_base, voice_id, skill_id
