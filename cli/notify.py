@@ -11,7 +11,7 @@ one. It works from any process because the delivery path is:
 Usage::
 
     notify.py "backup finished"
-    notify.py "render done" --title ComfyUI --subtitle "chisa/tanda3"
+    notify.py "render done" --title ComfyUI --subtitle "batch-3"
     notify.py "something urgent" --voice turbo --no-chime --force
     notify.py "test" --dry-run --json
 

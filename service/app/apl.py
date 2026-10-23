@@ -1,6 +1,6 @@
 """APL documents for Echo Show screens.
 
-Hard-won detail (Echo Show 5 3rd gen, firmware 2026-10): **`datasources` bindings
+Hard-won detail (measured on real Echo Show hardware): **`datasources` bindings
 do not reach this device.** A document using ``${payload.text}`` renders only the
 root ``Frame`` and nothing inside — dark background, no text, no image — while a
 literal ``"LITERAL OK"`` in the same document renders fine.

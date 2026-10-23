@@ -4,7 +4,7 @@ Alexa's SSML ``<audio src="...">`` element requires **MP3, 48 kbps, 16 kHz,
 mono**. Higher sample rates are downloaded by the device and then silently
 dropped, which looks exactly like "the file is fine but nothing plays".
 
-Two hard-won facts (Echo Show 5, firmware 2026-10):
+Two hard-won facts (measured on real Echo Show hardware):
 
 * The system skill behind ``Alexa.Speak`` (Simon Says) **fetches the file and
   never plays it**. Custom audio only works from inside a *custom skill*

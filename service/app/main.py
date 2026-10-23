@@ -15,6 +15,7 @@ import json
 import logging
 import re
 from collections import deque
+from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
 from typing import Any
@@ -466,6 +467,62 @@ async def dispatch(payload: dict) -> JSONResponse:
 # --------------------------------------------------------------------------- #
 # Routes (registered with and without the /alexa prefix)
 # --------------------------------------------------------------------------- #
+_DEVICES_PATH = STATE_DIR / "devices.json"
+
+
+def _remember_device(payload: dict, request: "Request") -> None:
+    """Persist what the calling device can do.
+
+    Echo models differ in viewport, APL support and AudioPlayer support, so an
+    agent helping with the setup should read this file instead of guessing (and
+    instead of suggesting features the device lacks). Best effort: never blocks
+    a request.
+    """
+    ctx = payload.get("context") or {}
+    system = ctx.get("System") or {}
+    device = system.get("device") or {}
+    viewport = ctx.get("Viewport") or {}
+    interfaces = sorted((device.get("supportedInterfaces") or {}).keys())
+    entry = {
+        "deviceId": device.get("deviceId"),
+        "interfaces": interfaces,
+        "apl": "Alexa.Presentation.APL" in interfaces,
+        "audio_player": "AudioPlayer" in interfaces,
+        "viewport": {
+            "width": viewport.get("currentPixelWidth"),
+            "height": viewport.get("currentPixelHeight"),
+            "mode": viewport.get("mode"),
+            "shape": viewport.get("shape"),
+            "dpi": viewport.get("pixelDensity"),
+        },
+        "locale": (payload.get("request") or {}).get("locale") or system.get("device", {}).get("locale"),
+        "last_seen": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    log.info(
+        "device caps: interfaces=%s viewport=%sx%s profile=%s",
+        ",".join(interfaces)[:220],
+        entry["viewport"]["width"], entry["viewport"]["height"],
+        entry["viewport"]["mode"] or "-",
+    )
+    if not entry["deviceId"]:
+        return
+    try:
+        data = json.loads(_DEVICES_PATH.read_text(encoding="utf-8")) if _DEVICES_PATH.is_file() else {}
+    except (OSError, json.JSONDecodeError):
+        data = {}
+    previous = data.get(entry["deviceId"]) or {}
+    if previous.get("first_seen"):
+        entry["first_seen"] = previous["first_seen"]
+    else:
+        entry["first_seen"] = entry["last_seen"]
+    data[entry["deviceId"]] = entry
+    try:
+        _DEVICES_PATH.parent.mkdir(parents=True, exist_ok=True)
+        _DEVICES_PATH.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+
+
 async def _skill_entry(request: Request) -> JSONResponse:
     body = await request.body()
     try:
@@ -474,16 +531,7 @@ async def _skill_entry(request: Request) -> JSONResponse:
         return JSONResponse({"error": "bad json"}, status_code=400)
 
     try:
-        ctx = payload.get("context") or {}
-        device = (ctx.get("System") or {}).get("device") or {}
-        viewport = ctx.get("Viewport") or {}
-        log.info(
-            "device caps: interfaces=%s viewport=%sx%s profile=%s",
-            ",".join(sorted((device.get("supportedInterfaces") or {}).keys()))[:220],
-            viewport.get("currentPixelWidth"),
-            viewport.get("currentPixelHeight"),
-            viewport.get("mode") or "-",
-        )
+        _remember_device(payload if isinstance(payload, dict) else {}, request)
     except Exception:  # noqa: BLE001
         pass
 

@@ -1,7 +1,7 @@
 # Pitfalls
 
-Everything below was measured against a live Echo Show 5 (3rd gen) and a real
-Amazon account, and each one cost hours. The code already handles them — this file
+Everything below was measured against real Echo Show hardware and a real Amazon
+account, and each one cost hours. The code already handles them — this file
 exists so nobody "optimises" them away.
 
 ## 1. `<audio>` in `Alexa.Speak` is fetched but never played
@@ -30,7 +30,7 @@ A document with
 {"type": "Text", "text": "${payload.text}"}
 ```
 
-renders **only the root frame** on an Echo Show 5 — a blank coloured screen. A
+renders **only the root frame** on Echo Show hardware — a blank coloured screen. A
 literal `"LITERAL OK"` in the same document renders fine, which is the bisection
 that proves it is the binding and not the layout.
 
@@ -42,7 +42,7 @@ same reason — fewer resolution steps that can fail silently.
 
 ## 4. The viewport is not what you assume
 
-An Echo Show 5 reports **960×480** (HUB profile), not 1280×800. A layout sized for
+Some Echo Shows report **960×480** (HUB profile), not 1280×800. A layout sized for
 the bigger canvas clips text and looks broken.
 
 Read `context.Viewport` from the request (the service logs it on every call) and

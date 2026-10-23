@@ -196,6 +196,15 @@ def main() -> int:
     check_service()
     check_alexa()
 
+    if "--json" in sys.argv[1:]:
+        print(json.dumps({
+            "checks": [{"level": lvl, "name": name, "detail": detail}
+                       for lvl, name, detail in results],
+            "failures": sum(1 for lvl, _n, _d in results if lvl == "FAIL"),
+            "warnings": sum(1 for lvl, _n, _d in results if lvl == "WARN"),
+        }, indent=2, ensure_ascii=False))
+        return 1 if any(lvl == "FAIL" for lvl, _n, _d in results) else 0
+
     width = max(len(name) for _level, name, _detail in results) + 2
     for level, name, detail in results:
         print(f"[{level:4}] {name:<{width}} {detail}")

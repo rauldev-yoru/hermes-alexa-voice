@@ -68,7 +68,7 @@ Alexa will not call a self-signed endpoint.
 notify.py "render finished"
 
 # with context on screen
-notify.py "training done: loss 0.041" --title LoRA --subtitle "chisa v2"
+notify.py "training done: loss 0.041" --title LoRA --subtitle "run 2"
 
 # never wake the house, always deliver important stuff
 notify.py "disk warning" --quiet-hours 23-8 --force
@@ -114,6 +114,9 @@ Components:
 | `cli/notify.py` | the notification tool — queue + ring |
 | `cli/doctor.py` | preflight diagnostics with actionable fixes |
 | `skill/SKILL.md` | install/repair guide written for an agent to follow unattended |
+| `skill/references/` | fallbacks per missing piece, TTS providers, device capabilities, customisation |
+| `skill/scripts/probe.py` | environment report: what works, what is missing, which fallback to take |
+| `skill/scripts/configure.py` | validated edits to `config.json` (voice, phrases, image, language) |
 | `docs/PITFALLS.md` | the failures that cost hours, and why they happen |
 
 ## Honest limitations

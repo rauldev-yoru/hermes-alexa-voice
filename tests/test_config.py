@@ -12,15 +12,15 @@ def test_defaults_without_file_or_env(load_config):
 
 
 def test_file_overrides_defaults(load_config):
-    cfg = load_config({"port": 9000, "brand_title": "AOI", "image_roots": ["/a", "/b"]})
+    cfg = load_config({"port": 9000, "brand_title": "AGENT", "image_roots": ["/a", "/b"]})
     assert cfg.PORT == 9000
-    assert cfg.BRAND_TITLE == "AOI"
+    assert cfg.BRAND_TITLE == "AGENT"
     assert [str(p) for p in cfg.GALLERY_ROOTS] == ["/a", "/b"]
-    assert cfg.NOTIFY_CFG["title"] == "AOI"
+    assert cfg.NOTIFY_CFG["title"] == "AGENT"
 
 
 def test_env_overrides_file(load_config):
-    cfg = load_config({"port": 9000, "brand_title": "AOI"},
+    cfg = load_config({"port": 9000, "brand_title": "AGENT"},
                       {"ALEXA_PORT": "9100", "ALEXA_BRAND_TITLE": "ENV"})
     assert cfg.PORT == 9100
     assert cfg.BRAND_TITLE == "ENV"
