@@ -63,8 +63,10 @@ hermes skills install https://raw.githubusercontent.com/rauldev-yoru/hermes-alex
 ```
 
 It brings `SKILL.md` plus `references/` (fallbacks, TTS providers, device
-capabilities, customisation). The scripts ship with the repo — clone it first, the
-paths in the skill are relative to the checkout.
+capabilities, customisation). The skill is a **guide, not the code**: it starts by
+telling the agent to clone the repo, because `install.sh`, `cli/`, `docs/` and
+`skill/scripts/` live in the checkout — the installer only ships the skill file and
+its references.
 
 Then the one-time Alexa console work (create the skill, paste the interaction
 model, point it at your public https URL): **[docs/SETUP.md](docs/SETUP.md)**.

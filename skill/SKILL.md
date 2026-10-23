@@ -11,12 +11,25 @@ it out loud — optionally in a custom TTS voice, with a chime and a card on scr
 The same skill answers free-text questions, plays a local audio library and shows
 an image gallery, but the notification path is the reason it exists.
 
-**Work through this file in order.** Do not install anything before step 0 —
-half the pieces are optional, and the probe tells you which ones this machine and
-this device actually need.
+**Work through this file in order.** Do not install anything before the probe —
+half the pieces are optional, and it tells you which ones this machine and this
+device actually need.
 
-**All paths below are relative to the cloned repository** (`git clone` it first;
-`skill/scripts/` ships with the repo, not with the installed skill file).
+## Step 0 — get the code (once)
+
+This installed skill is the **guide**. The code, the scripts and the long-form
+docs live in the repository, and none of them are inside the skill directory:
+`install.sh`, `cli/`, `service/`, `docs/` and `skill/scripts/` only exist in a
+checkout.
+
+```bash
+git clone https://github.com/rauldev-yoru/hermes-alexa-voice
+cd hermes-alexa-voice
+```
+
+Run every command below **from that directory**. Paths like `cli/...`,
+`skill/scripts/...` and `docs/...` are relative to the checkout — if you are
+looking for them next to this SKILL.md they are not there, and that is expected.
 
 ## Architecture
 
@@ -36,7 +49,7 @@ cron / agent  ──►  notify.py
 the service pops the queued message and answers with custom audio. The user never
 says anything.
 
-## Step 0 — probe before you touch anything
+## Step 1 — probe before you touch anything
 
 ```bash
 python3 skill/scripts/probe.py          # human-readable
@@ -64,7 +77,7 @@ Proactive ringing adds two more: a `skill_id` and Amazon cookies. Without them t
 skill still answers when the user speaks — it just cannot be woken by a cron. Say
 that plainly instead of calling the setup broken.
 
-## Step 1 — install
+## Step 2 — install
 
 ```bash
 ./install.sh                        # venvs, systemd --user unit (or manual command), config.json
@@ -78,7 +91,7 @@ unit when the init system supports one and prints the manual command otherwise,
 and reports which tunnelling or reverse-proxy tools are available. It is
 idempotent — re-running it is safe.
 
-## Step 2 — configure what the user actually wants
+## Step 3 — configure what the user actually wants
 
 Ask, then write. Never pick across the user's choices:
 
@@ -100,16 +113,16 @@ configure.py --welcome "Nova here. What do you need?" --brand NOVA
 no key, a `media_root` that does not exist and an `art_image` that is not public
 are reported instead of silently doing nothing.
 
-## Step 3 — the Alexa skill (owner must be involved)
+## Step 4 — the Alexa skill (owner must be involved)
 
-Follow [docs/SETUP.md](../../docs/SETUP.md): create the skill, paste the interaction
+Follow `docs/SETUP.md` (in the checkout): create the skill, paste the interaction
 model (`service/skill/interaction_model.json`, or `.es.json`), enable **APL** and
 **AudioPlayer**, set the endpoint, switch the test tab to Development.
 
 If the account is brand new, the **owner** must complete Amazon's developer
 registration — personal data and a legal agreement cannot be delegated.
 
-## Step 4 — learn the device before suggesting features
+## Step 5 — learn the device before suggesting features
 
 ```bash
 skill/scripts/probe.py            # prints every device that has checked in
@@ -125,10 +138,10 @@ layouts. Model landscape and capability mapping:
 If the file is empty, ask the user to open the skill once
 (`"alexa, open <invocation name>"`) and probe again.
 
-## Step 5 — verify end to end
+## Step 6 — verify end to end
 
 `cli/doctor.py` covers the machine and the local service. For the full path, the
-ordered commands live in [docs/SETUP.md](../../docs/SETUP.md); in short:
+ordered commands live in `docs/SETUP.md` (in the checkout); in short:
 
 1. `cli/venv/bin/python cli/doctor.py` — no failures.
 2. `cli/venv/bin/python cli/alexa.py devices` — the Amazon session works.
@@ -162,7 +175,7 @@ Full reasoning and user-facing wording for each case:
 
 ## Troubleshooting
 
-Details and proof: [docs/PITFALLS.md](../../docs/PITFALLS.md).
+Details and proof: `docs/PITFALLS.md` (in the checkout).
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -206,7 +219,7 @@ Each one looks like a bug and is not. Do not "fix" them.
 | [references/tts-providers.md](references/tts-providers.md) | render contract, ElevenLabs, Piper, HTTP TTS |
 | [references/devices.md](references/devices.md) | capabilities, viewports, model landscape |
 | [references/customization.md](references/customization.md) | phrases, language, image, APL layout |
-| [docs/PITFALLS.md](../../docs/PITFALLS.md) | why the constraints exist, with proof |
-| [docs/SETUP.md](../../docs/SETUP.md) | publishing + developer console, step by step |
-| [docs/COOKIES.md](../../docs/COOKIES.md) | harvesting the Amazon session |
-| [docs/CONFIGURATION.md](../../docs/CONFIGURATION.md) | every config key and CLI flag |
+| `docs/PITFALLS.md` (in the checkout) | why the constraints exist, with proof |
+| `docs/SETUP.md` (in the checkout) | publishing + developer console, step by step |
+| `docs/COOKIES.md` (in the checkout) | harvesting the Amazon session |
+| `docs/CONFIGURATION.md` (in the checkout) | every config key and CLI flag |
