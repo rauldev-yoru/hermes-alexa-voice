@@ -53,8 +53,8 @@ Everything else is an upgrade.
 
 | # | Requirement | Verify |
 |---|---|---|
-| 1 | Service running | `curl -s http://127.0.0.1:<port>/health` |
-| 2 | Public **https** endpoint, publicly trusted cert | `curl -sS <public_base>/health` → `{"ok":true}` |
+| 1 | Service running and answering | `cli/venv/bin/python cli/doctor.py` |
+| 2 | Public **https** endpoint, publicly trusted cert | `cli/venv/bin/python cli/doctor.py` (public endpoint check) |
 | 3 | Alexa skill created, model built, endpoint set | console shows a successful build; Test = Development |
 
 Proactive ringing adds two more: a `skill_id` and Amazon cookies. Without them the
@@ -69,10 +69,11 @@ skill/scripts/configure.py --show   # effective config after the three-layer mer
 cli/venv/bin/python cli/doctor.py   # one line per check, with the fix
 ```
 
-`install.sh` adapts: finds a python ≥3.10, prints the exact package-manager command
-when ffmpeg/openssl are missing, installs a user unit when systemd is available and
-the manual command when it is not, and detects Tailscale/cloudflared/nginx/Caddy
-for publishing.
+`install.sh` adapts to the host: it picks a python ≥3.10, prints the exact
+package-manager command when a system binary is missing, installs a user service
+unit when the init system supports one and prints the manual command otherwise,
+and reports which tunnelling or reverse-proxy tools are available. It is
+idempotent — re-running it is safe.
 
 ## Step 2 — configure what the user actually wants
 
@@ -123,18 +124,17 @@ If the file is empty, ask the user to open the skill once
 
 ## Step 5 — verify end to end
 
-```bash
-curl -s http://127.0.0.1:8099/health | jq .
-curl -s https://HOST/alexa/health | jq .
-curl -s -o /dev/null -w '%{http_code}\n' -X POST https://HOST/alexa -d '{}'   # 400 expected
-cli/venv/bin/python cli/alexa.py devices        # cookies work
-cli/venv/bin/python cli/alexa.py run-skill      # the Echo opens the skill silently
-cli/venv/bin/python cli/notify.py "install check"
-```
+`cli/doctor.py` covers the machine and the local service. For the full path, the
+ordered commands live in [docs/SETUP.md](../../docs/SETUP.md); in short:
+
+1. `cli/venv/bin/python cli/doctor.py` — no failures.
+2. `cli/venv/bin/python cli/alexa.py devices` — the Amazon session works.
+3. `cli/venv/bin/python cli/alexa.py run-skill` — the Echo opens the skill silently.
+4. `cli/venv/bin/python cli/notify.py "install check"` — the Echo speaks.
 
 A delivered notification leaves `SENT` in `service/state/notify.log` and a
-`GET /voice/<hash>.mp3 200` from an Amazon IP in the service log. That second line
-is the device fetching the clip — the proof the voice path works.
+`GET /voice/<hash>.mp3 200` from an Amazon address in the service log. That second
+line is the device fetching the clip — the proof the voice path works.
 
 ## Fallbacks at a glance
 
@@ -144,9 +144,9 @@ Full reasoning and user-facing wording for each case:
 | Situation | Severity | Do this |
 |---|---|---|
 | No developer account | blocking | owner registers; prepare everything else meanwhile |
-| No public https endpoint | blocking | Tailscale Funnel / cloudflared / nginx+certbot — never self-signed |
-| No `ffmpeg` | degraded | `voice_id: ""` → built-in voice; no thumbnails |
-| No `ELEVENLABS_API_KEY` | degraded | **offer the built-in voice first**, then explain what a custom voice adds |
+| No public https endpoint | blocking | a tunnel or reverse proxy with a real certificate — never self-signed or plain http |
+| No `ffmpeg` | degraded | empty `voice_id` → built-in voice; no thumbnails |
+| No TTS API key | degraded | **offer the built-in voice first**, then explain what a custom voice adds |
 | No Amazon cookies | degraded | no proactive ringing; skill still answers by voice |
 | No `skill_id` | degraded | same as above |
 | No `systemd --user` | cosmetic | docker, supervisor, or `nohup` |
