@@ -1,0 +1,97 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "my agent",
+      "intents": [
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.PauseIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.ResumeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NextIntent",
+          "samples": []
+        },
+        {
+          "name": "PlayMusicIntent",
+          "slots": [
+            {
+              "name": "song",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "play {song}",
+            "put on {song}",
+            "play the song {song}",
+            "play music by {song}",
+            "I want to hear {song}",
+            "start {song}"
+          ]
+        },
+        {
+          "name": "AskIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "ask {question}",
+            "tell me {question}",
+            "find out {question}",
+            "search for {question}",
+            "I need to know {question}",
+            "what is {question}"
+          ]
+        },
+        {
+          "name": "ListIntent",
+          "slots": [],
+          "samples": [
+            "what music do we have",
+            "what music is there",
+            "list the music",
+            "what is in the library",
+            "list the audio library"
+          ]
+        },
+        {
+          "name": "GalleryIntent",
+          "slots": [],
+          "samples": [
+            "show the pictures",
+            "show me the images",
+            "open the gallery",
+            "what pictures do we have",
+            "show the newest pictures"
+          ]
+        }
+      ],
+      "types": []
+    },
+    "dialog": {
+      "intents": []
+    }
+  }
+}

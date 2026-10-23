@@ -1,0 +1,20 @@
+# secrets and runtime state
+.env
+config.json
+service/state/
+state/
+credentials/
+*.mp3
+!service/state/voice/chime.mp3
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# editors / os
+.DS_Store
+.idea/
+.vscode/

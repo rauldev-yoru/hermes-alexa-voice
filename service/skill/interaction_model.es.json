@@ -1,0 +1,99 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "mi agente",
+      "intents": [
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.PauseIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.ResumeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NextIntent",
+          "samples": []
+        },
+        {
+          "name": "PlayMusicIntent",
+          "slots": [
+            {
+              "name": "song",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "reproduce {song}",
+            "pon {song}",
+            "toca {song}",
+            "pon la cancion {song}",
+            "reproduce la cancion {song}",
+            "pon musica de {song}",
+            "quiero escuchar {song}"
+          ]
+        },
+        {
+          "name": "AskIntent",
+          "slots": [
+            {
+              "name": "question",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "pregunta {question}",
+            "dime {question}",
+            "averigua {question}",
+            "busca {question}",
+            "cuentame {question}",
+            "necesito saber {question}",
+            "consulta {question}"
+          ]
+        },
+        {
+          "name": "ListIntent",
+          "slots": [],
+          "samples": [
+            "que musica tenemos",
+            "que musica hay",
+            "lista la musica",
+            "que hay en la biblioteca",
+            "que tenemos en la biblioteca"
+          ]
+        },
+        {
+          "name": "GalleryIntent",
+          "slots": [],
+          "samples": [
+            "muestrame las imagenes",
+            "muestrame las fotos",
+            "abre la galeria",
+            "que imagenes tenemos",
+            "muestrame las imagenes mas recientes"
+          ]
+        }
+      ],
+      "types": []
+    },
+    "dialog": {
+      "intents": []
+    }
+  }
+}

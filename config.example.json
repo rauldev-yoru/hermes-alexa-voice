@@ -1,0 +1,41 @@
+{
+  "public_base": "https://YOUR-HOST.example.com/alexa",
+  "host": "127.0.0.1",
+  "port": 8099,
+
+  "media_root": null,
+  "image_roots": [],
+
+  "brand_title": "AGENT",
+  "brand_welcome": "Here. Ask me something, or ask me to play music.",
+  "brand_help": "Ask me a question, ask me to play something, or ask for the newest pictures.",
+  "art_image": null,
+
+  "voice_enabled": true,
+  "voice_id": "",
+  "voice_model": "eleven_v4",
+  "chime": true,
+
+  "agent_bin": null,
+  "agent_profile": null,
+  "agent_timeout": 240,
+  "agent_sync_budget": 4.0,
+
+  "device_name": null,
+  "skill_id": null,
+  "cookies_file": null,
+  "skip_verify": false,
+  "state_dir": null,
+
+  "strings": {},
+
+  "notify": {
+    "model": "eleven_v4",
+    "chime": true,
+    "screen": true,
+    "title": null,
+    "subtitle": "",
+    "quiet_hours": null,
+    "dedupe_minutes": 5
+  }
+}
